@@ -1,0 +1,27 @@
+{
+  "name": "service-evenements",
+  "version": "1.0.0",
+  "description": "Microservice de gestion des événements",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js"
+  },
+  "keywords": [
+    "microservices",
+    "events",
+    "nodejs"
+  ],
+  "author": "Hazem Zammit",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^5.1.0",
+    "mongoose": "^8.20.1",
+    "yup": "^1.7.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11"
+  }
+}
