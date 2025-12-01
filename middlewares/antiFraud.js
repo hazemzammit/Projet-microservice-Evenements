@@ -1,29 +1,21 @@
-const fraudAttempts = {}; 
-// structure : { "IP_ADDRESS": { attempts: x, lastAttempt: date } }
+// simple in-memory anti-fraud per IP for /validate endpoint
+const attempts = {};
 
 export default function antiFraudMiddleware(req, res, next) {
-  const ip = req.ip;
-
+  const ip = req.ip || req.connection.remoteAddress;
   const now = Date.now();
 
-  if (!fraudAttempts[ip]) {
-    fraudAttempts[ip] = { attempts: 0, lastAttempt: now };
-  }
+  if (!attempts[ip]) attempts[ip] = { count: 0, last: now };
 
-  const timeSinceLast = now - fraudAttempts[ip].lastAttempt;
+  // reset if older than 10 minutes
+  if (now - attempts[ip].last > 10 * 60 * 1000) attempts[ip].count = 0;
 
-  // reset après 10 min
-  if (timeSinceLast > 10 * 60 * 1000) {
-    fraudAttempts[ip].attempts = 0;
-  }
+  attempts[ip].count += 1;
+  attempts[ip].last = now;
 
-  fraudAttempts[ip].attempts++;
-  fraudAttempts[ip].lastAttempt = now;
-
-  if (fraudAttempts[ip].attempts > 10) {
-    return res.status(429).json({
-      error: "Suspicious activity detected. IP temporarily blocked."
-    });
+  // allow a reasonable amount (e.g. 10 validations in 10 minutes)
+  if (attempts[ip].count > 10) {
+    return res.status(429).json({ error: "Trop de tentatives de validation. IP temporairement bloquée." });
   }
 
   next();

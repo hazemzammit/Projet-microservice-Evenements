@@ -1,41 +1,21 @@
-import express from "express";
-
+// routes/promotion.routes.js
+import { Router } from "express";
 import {
   createPromotion,
   getAllPromotions,
   getPromotionById,
+  updatePromotion,
   deletePromotion,
-  validatePromotionDate,
-  createEventPromotion,
-  getPromotionStats,
-  getPromotionDetailStats
+  promotionStats
 } from "../controllers/promotion.controller.js";
 
-const router = express.Router();
+const router = Router();
 
-// ================================
-// CRUD Promotions
-// ================================
 router.post("/", createPromotion);
 router.get("/", getAllPromotions);
+router.get("/stats", promotionStats);
 router.get("/:id", getPromotionById);
+router.put("/:id", updatePromotion);
 router.delete("/:id", deletePromotion);
-
-// ================================
-// Validation date d’une promotion
-// ================================
-router.get("/validate/:id", validatePromotionDate);
-
-// ================================
-// Events spéciaux
-// Ex: /promotions/create-event/ramadan
-// ================================
-router.post("/create-event/:event", createEventPromotion);
-
-// ================================
-// Statistiques
-// ================================
-router.get("/stats/global", getPromotionStats);
-router.get("/stats/:id", getPromotionDetailStats);
 
 export default router;

@@ -1,15 +1,16 @@
+// controllers/coupon.controller.js
+
 import {
   createCouponService,
-  autoGenerateCouponService,
   validateCouponService,
   useCouponService,
-  couponGlobalStatsService,
-  couponStatsByPromotionService
+  getCouponQRCode,
+  couponGlobalStatsService
 } from "../services/coupon.service.js";
 
-// ================================
-// 🟢 CREATE COUPON
-// ================================
+// ----------------------------------------------
+// CREATE COUPON
+// ----------------------------------------------
 export const createCoupon = async (req, res) => {
   try {
     const coupon = await createCouponService(req.body);
@@ -19,70 +20,63 @@ export const createCoupon = async (req, res) => {
   }
 };
 
-// ================================
-// 🟢 AUTO GENERATE COUPON
-// ================================
-export const autoGenerateCoupon = async (req, res) => {
-  try {
-    const coupon = await autoGenerateCouponService(req.params.promotionId);
-    res.status(201).json(coupon);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-};
-
-// ================================
-// 🟢 VALIDATE COUPON
-// ================================
+// ----------------------------------------------
+// VALIDATE COUPON (NO USAGE INCREMENT)
+// ----------------------------------------------
 export const validateCoupon = async (req, res) => {
   try {
-    const clientIP = req.ip;
-    const { code, category } = req.body;
+    const result = await validateCouponService(req.body.code, {
+      cartAmount: req.body.cartAmount,
+      category: req.body.category,
+      clientIP: req.ip
+    });
 
-    const promo = await validateCouponService(code, category, clientIP);
-
-    res.json({ valid: true, promotion: promo });
+    res.json({
+      valid: true,
+      promotion: result.promo,
+      bestApplicablePromotions: result.bestSet
+    });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 };
 
-// ================================
-// 🟢 USE COUPON
-// ================================
+// ----------------------------------------------
+// USE COUPON (INCREMENT + FRAUD CHECK)
+// ----------------------------------------------
 export const useCoupon = async (req, res) => {
   try {
-    const clientIP = req.ip;
-    const { code } = req.body;
+    const coupon = await useCouponService(req.body.code, req.ip);
 
-    const result = await useCouponService(code, clientIP);
-
-    res.json({ message: "Coupon utilisé", result });
+    res.json({
+      message: "Coupon utilisé",
+      coupon
+    });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 };
 
-// ================================
-// 🟢 GLOBAL STATS
-// ================================
-export const getCouponGlobalStats = async (req, res) => {
+// ----------------------------------------------
+// GET QR CODE FOR COUPON
+// ----------------------------------------------
+export const couponQRCode = async (req, res) => {
+  try {
+    const qr = await getCouponQRCode(req.params.id);
+    res.json({ qrCode: qr });
+  } catch (err) {
+    res.status(404).json({ error: err.message });
+  }
+};
+
+// ----------------------------------------------
+// GLOBAL STATS (METIER AVANCÉ)
+// ----------------------------------------------
+export const getCouponStats = async (req, res) => {
   try {
     const stats = await couponGlobalStatsService();
     res.json(stats);
   } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-};
-
-// ================================
-// 🟢 STATS BY PROMOTION
-// ================================
-export const getCouponStatsByPromotion = async (req, res) => {
-  try {
-    const stats = await couponStatsByPromotionService(req.params.promotionId);
-    res.json(stats);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 };
