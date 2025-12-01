@@ -1,218 +1,161 @@
 // services/promotion.service.js
 import Promotion from "../models/promotion.model.js";
 import { writeLog } from "./log.service.js";
+import { sendEmail } from "./mail.service.js";
 
-// ---------------------------------------------
-// 1) GET DATES D’ÉVÉNEMENTS AUTOMATIQUES
-// ---------------------------------------------
+// ------------- UTILITAIRES -------------
 export function getEventDates(category, year = new Date().getFullYear()) {
   const events = {
-    ramadan: {
-      start: new Date(`${year}-03-01T00:00:00.000Z`),
-      end: new Date(`${year}-03-30T23:59:59.000Z`)
-    },
-    black_friday: {
-      start: new Date(`${year}-11-27T00:00:00.000Z`),
-      end: new Date(`${year}-11-30T23:59:59.000Z`)
-    },
-    cyber_monday: {
-      start: new Date(`${year}-12-01T00:00:00.000Z`),
-      end: new Date(`${year}-12-02T23:59:59.000Z`)
-    },
-    end_year: {
-      start: new Date(`${year}-12-20T00:00:00.000Z`),
-      end: new Date(`${year}-12-31T23:59:59.000Z`)
-    },
-    back_to_school: {
-      start: new Date(`${year}-09-01T00:00:00.000Z`),
-      end: new Date(`${year}-09-30T23:59:59.000Z`)
-    }
+    ramadan: { start: new Date(`${year}-03-10`), end: new Date(`${year}-04-09`) },
+    black_friday: { start: new Date(`${year}-11-27`), end: new Date(`${year}-11-30`) },
+    cyber_monday: { start: new Date(`${year}-12-01`), end: new Date(`${year}-12-02`) },
+    end_year: { start: new Date(`${year}-12-20`), end: new Date(`${year}-12-31`) },
+    back_to_school: { start: new Date(`${year}-09-01`), end: new Date(`${year}-09-30`) }
   };
   return events[category] || null;
 }
 
-// ---------------------------------------------
-// 2) UTILS
-// ---------------------------------------------
-function now() {
-  return new Date();
-}
-
+const now = () => new Date();
 function computeIsActive(startDate, endDate) {
   const n = now();
   return n >= new Date(startDate) && n <= new Date(endDate);
 }
 
-// ---------------------------------------------
-// 3) CREATE PROMOTION
-// ---------------------------------------------
+// ---------------- FONCTION MANQUANTE (CRITIQUE) ----------------
+export const chooseBestPromotions = async (cartAmount = 0, category = null) => {
+  const promotions = await Promotion.find({ isActive: true }).sort({ priority: -1 });
+
+  const applicable = [];
+  const stackable = [];
+
+  for (const promo of promotions) {
+    if (cartAmount < promo.minPurchase) continue;
+    if (category && promo.category !== "normal" && promo.category !== category) continue;
+
+    if (promo.stackable) {
+      stackable.push(promo);
+    } else {
+      applicable.push(promo);
+    }
+  }
+
+  // On prend les non-stackables d'abord (priorité haute), puis on ajoute les stackables
+  const bestSet = [...applicable.slice(0, 1), ...stackable];
+
+  await writeLog("promotion_selection", "Meilleures promotions sélectionnées", {
+    cartAmount,
+    category,
+    count: bestSet.length,
+    promoIds: bestSet.map(p => p._id)
+  });
+
+  return { bestSet, allApplicable: [...applicable, ...stackable] };
+};
+
+// ---------------- CRUD ----------------
 export const createPromotionService = async (data) => {
   let { startDate, endDate, category } = data;
 
-  // Auto dates pour événements
   const eventDates = getEventDates(category);
   if (eventDates && (!startDate || !endDate)) {
     startDate = eventDates.start;
     endDate = eventDates.end;
   }
 
-  if (!startDate || !endDate) {
-    throw new Error("startDate et endDate sont obligatoires");
-  }
+  if (!startDate || !endDate) throw new Error("startDate et endDate obligatoires");
 
-  // Actif ?
   const isActive = computeIsActive(startDate, endDate);
 
-  // Détection de conflits
-  const conflicts = await Promotion.find({
-    $or: [
-      { category: category },
-      {
-        $and: [
-          { startDate: { $lt: new Date(endDate) } },
-          { endDate: { $gt: new Date(startDate) } }
-        ]
-      }
-    ]
-  });
-
-  if (conflicts.length > 0) {
-    await writeLog("promotion_conflict", "Conflits détectés lors de la création", {
-      conflicts: conflicts.map(c => c._id)
-    });
-  }
-
-  const promo = await Promotion.create({
-    ...data,
-    startDate,
-    endDate,
-    isActive
-  });
-
-  await writeLog("promotion_create", "Promotion créée", { promotionId: promo._id });
-
+  const promo = await Promotion.create({ ...data, startDate, endDate, isActive });
   return promo;
 };
 
-// ---------------------------------------------
-// 4) GET ALL
-// ---------------------------------------------
 export const getAllPromotionsService = async () => {
   return await Promotion.find().sort({ priority: -1, createdAt: -1 });
 };
 
-// ---------------------------------------------
-// 5) GET BY ID
-// ---------------------------------------------
 export const getPromotionByIdService = async (id) => {
-  const promo = await Promotion.findById(id);
-  if (!promo) throw new Error("Promotion introuvable");
-  return promo;
+  const p = await Promotion.findById(id);
+  if (!p) throw new Error("Promotion introuvable");
+  return p;
 };
 
-// ---------------------------------------------
-// 6) UPDATE
-// ---------------------------------------------
 export const updatePromotionService = async (id, data) => {
   if (data.startDate && data.endDate) {
     data.isActive = computeIsActive(data.startDate, data.endDate);
   }
-
-  const updated = await Promotion.findByIdAndUpdate(id, data, { new: true });
-  if (!updated) throw new Error("Promotion introuvable");
-
-  await writeLog("promotion_update", "Promotion mise à jour", { promotionId: id });
-
-  return updated;
+  return await Promotion.findByIdAndUpdate(id, data, { new: true });
 };
 
-// ---------------------------------------------
-// 7) DELETE
-// ---------------------------------------------
 export const deletePromotionService = async (id) => {
-  const deleted = await Promotion.findByIdAndDelete(id);
-  if (!deleted) throw new Error("Promotion introuvable");
-
-  await writeLog("promotion_delete", "Promotion supprimée", { promotionId: id });
-
+  const res = await Promotion.findByIdAndDelete(id);
+  if (!res) throw new Error("Promotion introuvable");
   return true;
 };
 
-// ---------------------------------------------
-// 8) PRIORITY & STACKING ENGINE
-// ---------------------------------------------
-export const chooseBestPromotions = (promotions = [], cartAmount = 0, category = null) => {
-  let candidates = promotions.filter(p =>
-    cartAmount >= (p.minPurchase || 0) &&
-    (p.category === "normal" || !p.category || !category || p.category === category || p.category === "all")
-  );
+// ---------------- SEARCH ----------------
+export const searchPromotionsService = async (filters) => {
+  const {
+    name, category, isActive, minDiscount, maxDiscount, minPurchase,
+    sortBy = "createdAt", order = "desc", page = 1, limit = 10
+  } = filters;
 
-  // tri par priorité puis valeur du discount
-  candidates.sort((a, b) =>
-    (b.priority - a.priority) ||
-    (b.discountValue - a.discountValue)
-  );
+  const query = {};
 
-  const selected = [];
+  if (name) query.name = { $regex: name, $options: "i" };
+  if (category) query.category = category;
+  if (isActive !== undefined) query.isActive = isActive === "true";
 
-  for (const p of candidates) {
-    if (selected.length === 0) {
-      selected.push(p);
-      continue;
-    }
-
-    if (p.stackable) {
-      selected.push(p);
-    } else {
-      const anyNonStack = selected.find(s => !s.stackable);
-      if (!anyNonStack) selected.push(p);
-    }
+  if (minDiscount || maxDiscount) {
+    query.discountValue = {};
+    if (minDiscount) query.discountValue.$gte = Number(minDiscount);
+    if (maxDiscount) query.discountValue.$lte = Number(maxDiscount);
   }
 
-  return selected;
+  if (minPurchase) query.minPurchase = { $lte: Number(minPurchase) };
+
+  const skip = (page - 1) * limit;
+
+  const promotions = await Promotion.find(query)
+    .sort({ [sortBy]: order === "asc" ? 1 : -1 })
+    .skip(skip)
+    .limit(Number(limit));
+
+  const total = await Promotion.countDocuments(query);
+  return { total, page, limit, results: promotions };
 };
 
-// ---------------------------------------------
-// 9) STATS AVANCÉES
-// ---------------------------------------------
-export const promotionStatsService = async () => {
-  const totalPromotions = await Promotion.countDocuments();
-  const activePromotions = await Promotion.countDocuments({ isActive: true });
+// ----------- EMAIL PROMOTION -----------
+export const sendPromotionsByEmailService = async (email, promotionId = null) => {
+  let promotions;
 
-  const byCategory = await Promotion.aggregate([
-    {
-      $group: {
-        _id: "$category",
-        count: { $sum: 1 },
-        avgDiscount: { $avg: "$discountValue" }
-      }
-    }
-  ]);
+  if (promotionId) {
+    promotions = await Promotion.find({ _id: promotionId, isActive: true });
+  } else {
+    promotions = await Promotion.find({ isActive: true });
+  }
 
-  return {
-    totalPromotions,
-    activePromotions,
-    byCategory
-  };
-};
+  if (promotions.length === 0) {
+    throw new Error("Aucune promotion active trouvée.");
+  }
 
-// ---------------------------------------------
-// 10) SYNC (SCHEDULER)
-// ---------------------------------------------
-export const syncPromotionStatus = async () => {
-  const current = new Date();
+  let html = `<h2>Nos Promotions Actuelles</h2><ul>`;
 
-  await Promotion.updateMany(
-    { startDate: { $lte: current }, endDate: { $gte: current } },
-    { $set: { isActive: true } }
-  );
+  promotions.forEach(p => {
+    const start = new Date(p.startDate).toLocaleDateString('fr-FR');
+    const end = new Date(p.endDate).toLocaleDateString('fr-FR');
+    const type = p.discountType === "percentage" ? "%" : "DT";
 
-  await Promotion.updateMany(
-    { $or: [{ startDate: { $gt: current } }, { endDate: { $lt: current } }] },
-    { $set: { isActive: false } }
-  );
-
-  await writeLog("scheduler", "Mise à jour automatique des statuts promotions", {
-    time: current
+    html += `<li>
+      <strong>${p.name}</strong> → ${p.discountValue}${type} de réduction<br>
+      Du ${start} au ${end} • Min: ${p.minPurchase} DT
+    </li><br>`;
   });
+  html += `</ul><p>À très vite !</p>`;
+
+  const result = await sendEmail(email, "Vos promotions exclusives", html);
+
+  if (result.error) throw new Error("Échec envoi email");
+
+  return { sent: true, count: promotions.length };
 };

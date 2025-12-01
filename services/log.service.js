@@ -2,33 +2,26 @@
 import fs from "fs";
 import path from "path";
 
-// Définir dossier logs
-const LOG_DIR = path.resolve("logs");
-
-// Si le dossier n'existe pas → le créer
+const LOG_DIR = path.join(process.cwd(), "logs");
 if (!fs.existsSync(LOG_DIR)) {
   fs.mkdirSync(LOG_DIR);
 }
 
-/**
- * Écrit un log dans un fichier journalier
- * @param {String} type - "coupon_validate", "coupon_use", "fraud", "scheduler", etc.
- * @param {String} message - texte descriptif
- * @param {Object} data - données additionnelles (optionnel)
- */
-export async function writeLog(type, message, data = {}) {
-  const logLine = JSON.stringify({
-    timestamp: new Date().toISOString(),
+export const writeLog = async (type, message, data = {}) => {
+  const timestamp = new Date().toISOString();
+  const logEntry = {
+    timestamp,
     type,
     message,
-    data
-  }) + "\n";
+    ...data
+  };
 
-  const filename = path.join(LOG_DIR, `${new Date().toISOString().slice(0, 10)}.log`);
+  const logFile = path.join(LOG_DIR, `${new Date().toISOString().split("T")[0]}.log`);
+  const logLine = JSON.stringify(logEntry) + "\n";
 
   try {
-    await fs.promises.appendFile(filename, logLine);
+    fs.appendFileSync(logFile, logLine);
   } catch (err) {
-    console.error("Erreur lors de l'écriture du log:", err.message);
+    console.error("Erreur écriture log:", err);
   }
-}
+};

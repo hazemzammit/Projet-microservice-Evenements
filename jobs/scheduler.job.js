@@ -1,38 +1,33 @@
 // jobs/scheduler.job.js
-import { syncPromotionStatus } from "../services/promotion.service.js";
+import cron from "node-cron";
 import Promotion from "../models/promotion.model.js";
 import { writeLog } from "../services/log.service.js";
 
 export const startScheduler = () => {
-  console.log("⏳ Scheduler started…");
+  console.log("Scheduler démarré (cron)");
 
-  const run = async () => {
+  // Toutes les nuits à 2h du matin
+  cron.schedule("0 2 * * *", async () => {
+    console.log("Mise à jour automatique du statut des promotions...");
+    const now = new Date();
+
     try {
-      await syncPromotionStatus();
+      const result = await Promotion.updateMany(
+        { startDate: { $lte: now }, endDate: { $gte: now } },
+        { isActive: true }
+      );
+      await Promotion.updateMany(
+        { $or: [{ endDate: { $lt: now } }, { startDate: { $gt: now } }] },
+        { isActive: false }
+      );
 
-      // détecter chevauchements dans les 3 prochains jours
-      const now = new Date();
-      const future = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
-      const overlapping = await Promotion.aggregate([
-        { $match: { startDate: { $lte: future }, endDate: { $gte: now } } },
-        { $group: { _id: "$category", count: { $sum: 1 }, promos: { $push: "$_id" } } },
-        { $match: { count: { $gt: 1 } } }
-      ]);
-      if (overlapping.length) {
-        if (typeof writeLog === "function") {
-          await writeLog("scheduler", "Conflicts detected for upcoming promotions", { overlapping });
-        } else {
-          console.warn("Scheduler conflicts:", overlapping);
-        }
-      }
-
-      if (typeof writeLog === "function") await writeLog("scheduler", "Scheduler run completed", { time: new Date() });
+      await writeLog("cron_promotion_status", "Statut promotions mis à jour", {
+        activated: result.modifiedCount
+      });
     } catch (err) {
-      console.error("Scheduler error:", err.message);
-      if (typeof writeLog === "function") await writeLog("scheduler", "Scheduler error", { error: err.message });
+      await writeLog("cron_error", "Erreur mise à jour statut", { error: err.message });
     }
-  };
-
-  run();
-  setInterval(run, 60 * 1000); // every minute
+  }, {
+    timezone: process.env.CRON_TIMEZONE || "Africa/Tunis"
+  });
 };

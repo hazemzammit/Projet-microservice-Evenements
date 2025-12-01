@@ -1,20 +1,12 @@
 // middlewares/rateLimit.js
 import rateLimit from "express-rate-limit";
 
-/**
- * Rate limiter global pour éviter :
- * - spam API
- * - attaques DDOS simples
- * - abus lors de l'utilisation de coupons
- */
-
 export const genericRateLimiter = rateLimit({
-  windowMs: 60 * 1000,           // fenêtre de 1 minute
-  max: 100,                      // 100 requêtes max / minute
-  standardHeaders: true,         // ajoute headers "RateLimit-*"
-  legacyHeaders: false,
-
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200, // limite chaque IP à 200 requêtes par fenêtre
   message: {
-    error: "Trop de requêtes, réessayez dans une minute."
-  }
+    error: "Trop de requêtes depuis cette IP, réessayez dans 15 minutes."
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
 });

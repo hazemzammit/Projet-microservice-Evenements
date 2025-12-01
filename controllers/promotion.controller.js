@@ -1,16 +1,16 @@
-// controllers/promotion.controller.js
+// controllers/promotion.controller.js → Remplace tout le fichier
 import {
   createPromotionService,
   getAllPromotionsService,
   getPromotionByIdService,
   updatePromotionService,
   deletePromotionService,
-  promotionStatsService,
-  syncPromotionStatus
+  searchPromotionsService,
+  sendPromotionsByEmailService
 } from "../services/promotion.service.js";
-import { writeLog } from "../services/log.service.js";
+import Promotion from "../models/promotion.model.js";
 
-// Create
+// CREATE
 export const createPromotion = async (req, res) => {
   try {
     const promo = await createPromotionService(req.body);
@@ -20,37 +20,34 @@ export const createPromotion = async (req, res) => {
   }
 };
 
-// Get all
+// ALL
 export const getAllPromotions = async (req, res) => {
   try {
-    const promos = await getAllPromotionsService();
-    res.json(promos);
+    res.json(await getAllPromotionsService());
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-// Get by id
+// ID
 export const getPromotionById = async (req, res) => {
   try {
-    const promo = await getPromotionByIdService(req.params.id);
-    res.json(promo);
+    res.json(await getPromotionByIdService(req.params.id));
   } catch (err) {
     res.status(404).json({ error: err.message });
   }
 };
 
-// Update
+// UPDATE
 export const updatePromotion = async (req, res) => {
   try {
-    const updated = await updatePromotionService(req.params.id, req.body);
-    res.json(updated);
+    res.json(await updatePromotionService(req.params.id, req.body));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 };
 
-// Delete
+// DELETE
 export const deletePromotion = async (req, res) => {
   try {
     await deletePromotionService(req.params.id);
@@ -60,33 +57,37 @@ export const deletePromotion = async (req, res) => {
   }
 };
 
-// Stats
+// SEARCH
+export const searchPromotions = async (req, res) => {
+  try {
+    res.json(await searchPromotionsService(req.query));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+// STATS (était manquant)
 export const promotionStats = async (req, res) => {
   try {
-    const stats = await promotionStatsService();
-    res.json(stats);
+    const total = await Promotion.countDocuments();
+    const active = await Promotion.countDocuments({ isActive: true });
+    const byCategory = await Promotion.aggregate([
+      { $group: { _id: "$category", count: { $sum: 1 } } }
+    ]);
+
+    res.json({ total, active, inactive: total - active, byCategory });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-// Manual sync endpoint (useful for debugging / demo)
-export const syncPromotionsNow = async (req, res) => {
+// SEND EMAIL
+export const sendPromotionEmail = async (req, res) => {
   try {
-    await syncPromotionStatus();
-    res.json({ message: "Sync exécutée" });
+    const { email, promotionId } = req.body;
+    const result = await sendPromotionsByEmailService(email, promotionId);
+    res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-// Optional: quick endpoint to get active promotions only
-export const getActivePromotions = async (req, res) => {
-  try {
-    const all = await getAllPromotionsService();
-    const active = all.filter(p => p.isActive);
-    res.json(active);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(400).json({ error: err.message });
   }
 };
