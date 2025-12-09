@@ -1,0 +1,66 @@
+[
+  {
+    "id": 1,
+    "userId": "user123",
+    "eventId": "concert_2025",
+    "nombrePlaces": 4,
+    "statut": "en attente",
+    "dateReservation": "2025-04-05T10:00:00.000Z"
+  },
+  {
+    "id": 2,
+    "userId": "user123",
+    "eventId": "match_foot",
+    "nombrePlaces": 2,
+    "statut": "confirmée",
+    "dateReservation": "2025-04-04T15:30:00.000Z"
+  },
+  {
+    "id": "1764200224777x623cpl82",
+    "userId": "666666666666666666666666",
+    "eventId": "concert_2025",
+    "nombrePlaces": 3,
+    "statut": "annulée",
+    "dateReservation": "2025-11-26T23:37:04.780Z"
+  },
+  {
+    "id": "1764200385982dr52j3b6j",
+    "userId": "666666666666666666666666",
+    "eventId": "theatre_paris",
+    "nombrePlaces": 5,
+    "statut": "confirmée",
+    "dateReservation": "2025-11-26T23:39:45.982Z"
+  },
+  {
+    "id": "1764200394925x72e119gy",
+    "userId": "666666666666666666666666",
+    "eventId": "match_foot",
+    "nombrePlaces": 2,
+    "statut": "annulée",
+    "dateReservation": "2025-11-26T23:39:54.925Z"
+  },
+  {
+    "id": "1764633154022or7npp",
+    "userId": "testuser123",
+    "eventId": "test_concert_2025",
+    "nombrePlaces": 2,
+    "statut": "en attente",
+    "dateReservation": "2025-12-01T23:52:34.022Z"
+  },
+  {
+    "id": null,
+    "userId": "666666666666666666666666",
+    "eventId": "CONCERT-123",
+    "nombrePlaces": 2,
+    "statut": "en attente",
+    "dateReservation": "2025-12-02T08:54:44.466Z"
+  },
+  {
+    "id": null,
+    "userId": "666666666666666666666666",
+    "eventId": "CONCERT-123",
+    "nombrePlaces": 2,
+    "statut": "en attente",
+    "dateReservation": "2025-12-02T10:16:13.342Z"
+  }
+]

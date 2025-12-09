@@ -1,0 +1,24 @@
+[
+  {
+    "ticketNumber": "TKT-1764670250972XHCE9",
+    "reservationId": "1764200385982dr52j3b6j",
+    "userId": "666666666666666666666666",
+    "eventId": "theatre_paris",
+    "nombrePlaces": 5,
+    "transactionId": "pi_3SZqZV25vmHBRWlg0mamVofN",
+    "amount": 250,
+    "dateCreation": "2025-12-02T10:10:50.972Z",
+    "dateReservation": "2025-11-26T23:39:45.982Z"
+  },
+  {
+    "ticketNumber": "TKT-1764670879361P3ENW",
+    "reservationId": "1764200385982dr52j3b6j",
+    "userId": "666666666666666666666666",
+    "eventId": "theatre_paris",
+    "nombrePlaces": 5,
+    "transactionId": "pi_3SZqjd25vmHBRWlg1sFrl8SN",
+    "amount": 250,
+    "dateCreation": "2025-12-02T10:21:19.361Z",
+    "dateReservation": "2025-11-26T23:39:45.982Z"
+  }
+]
