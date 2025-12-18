@@ -1,13 +1,22 @@
 import mongoose from "mongoose";
 
 const couponSchema = new mongoose.Schema({
-  code: { type: String, required: true, unique: true },
-  promotion: { type: mongoose.Schema.Types.ObjectId, ref: "Promotion", required: true },
-  maxUsage: { type: Number, required: true },
-  usedCount: { type: Number, default: 0 },
-  qrCode: { type: String },
-  createdBy: { type: String }, // optional user id/email
-  lastUsedIP: { type: String }
+    code: { type: String, unique: true, required: true, uppercase: true, trim: true },
+    promotion: { type: mongoose.Schema.Types.ObjectId, ref: "Promotion", required: true },
+    type: { 
+        type: String, 
+        enum: ["single", "multi", "personal"], 
+        default: "multi" 
+    },
+    maxUsage: { type: Number, default: 1 },
+    usedCount: { type: Number, default: 0 },
+    usedBy: [{ 
+        user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        usedAt: { type: Date, default: Date.now }
+    }],
+    assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    expiresAt: { type: Date },
+    isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 
-export default mongoose.models.Coupon || mongoose.model("Coupon", couponSchema);
+export default mongoose.model("Coupon", couponSchema);

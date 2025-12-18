@@ -1,29 +1,11 @@
-// routes/promotion.routes.js
-import { Router } from "express";
-import {
-  createPromotion,
-  getAllPromotions,
-  getPromotionById,
-  updatePromotion,
-  deletePromotion,
-  promotionStats,
-  searchPromotions,
-  sendPromotionEmail
-} from "../controllers/promotion.controller.js";
+import express from "express";
+import { createPromotion, getPromotions, deactivatePromotion, sendPromotion } from "../controllers/promotion.controller.js";
 
-const router = Router();
-
-// ORDRE CRITIQUE : LES ROUTES SPÉCIFIQUES DOIVENT ÊTRE AVANT LES PARAMÈTRES
+const router = express.Router();
 
 router.post("/", createPromotion);
-router.get("/", getAllPromotions);
-router.get("/stats", promotionStats);
-router.get("/search", searchPromotions);     // ← AVANT la route :id !
-router.post("/send-email", sendPromotionEmail);
-
-// Routes avec paramètres (doivent être en dernier)
-router.get("/:id", getPromotionById);
-router.put("/:id", updatePromotion);
-router.delete("/:id", deletePromotion);
+router.get("/", getPromotions);
+router.put("/:id/deactivate", deactivatePromotion);
+router.post("/send", sendPromotion); // Envoi email promo
 
 export default router;

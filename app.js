@@ -1,26 +1,19 @@
 import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-
-dotenv.config();
-
-import { genericRateLimiter } from "./middlewares/rateLimit.js";
 import promotionRoutes from "./routes/promotion.routes.js";
 import couponRoutes from "./routes/coupon.routes.js";
+import statsRoutes from "./routes/stats.routes.js";
 
 const app = express();
 
-app.use(cors());
-app.use(express.json({ limit: "2mb" }));
-app.use(genericRateLimiter);
+app.use(express.json());
 
-// ROUTES
-app.use("/promotions", promotionRoutes);
-app.use("/coupons", couponRoutes);
+app.use("/api/promotions", promotionRoutes);
+app.use("/api/coupons", couponRoutes);
+app.use("/api/stats", statsRoutes);
 
-// TEST ROUTE
-app.get("/", (req, res) => {
-  res.json({ status: "Promotion API running..." });
+app.use((err, req, res, next) => {
+    console.error(err);
+    res.status(500).json({ error: "Erreur serveur" });
 });
 
 export default app;

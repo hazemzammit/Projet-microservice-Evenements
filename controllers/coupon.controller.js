@@ -1,78 +1,100 @@
 import {
-  createCouponService,
-  validateCouponService,
-  useCouponService,
-  getCouponQRCode,
-  couponGlobalStatsService,
-  simulateCouponImpact
+    createCouponService,
+    validateCouponService,
+    useCouponService,
+    deactivateCouponService,
+    sendCouponAfterPurchase
 } from "../services/coupon.service.js";
+import Promotion from "../models/promotion.model.js";
 
 export const createCoupon = async (req, res) => {
-  try {
-    const c = await createCouponService(req.body);
-    res.status(201).json(c);
-  } catch (e) {
-    res.status(400).json({ error: e.message });
-  }
+    try {
+        const coupon = await createCouponService(req.body);
+        res.status(201).json(coupon);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 };
 
 export const validateCoupon = async (req, res) => {
-  try {
-    const r = await validateCouponService(req.body.code, {
-      cartAmount: req.body.cartAmount,
-      category: req.body.category,
-      clientIP: req.ip,
-      sandbox: req.body.sandbox || false
-    });
-    res.json({
-      valid: true,
-      promotion: r.promo,
-      bestApplicablePromotions: r.bestSet || r.allApplicable
-    });
-  } catch (e) {
-    res.status(400).json({ error: e.message });
-  }
+    try {
+        const { code, category, userId, cartAmount } = req.body;
+        const result = await validateCouponService(code, category, userId, cartAmount);
+        res.json(result);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 };
 
 export const useCoupon = async (req, res) => {
-  try {
-    const c = await useCouponService(req.body.code, req.ip);
-    res.json({ success: true, message: "Coupon utilisé", coupon: c });
-  } catch (e) {
-    res.status(400).json({ error: e.message });
-  }
+    try {
+        const { code, userId, cartAmount } = req.body;
+        const result = await useCouponService(code, userId, cartAmount);
+        res.json(result);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 };
 
-export const couponQRCode = async (req, res) => {
-  try {
-    const qr = await getCouponQRCode(req.params.id);
-    res.json({ success: true, qrCode: qr });
-  } catch (e) {
-    res.status(404).json({ error: e.message });
-  }
+export const deactivateCoupon = async (req, res) => {
+    try {
+        const coupon = await deactivateCouponService(req.body.code);
+        res.json(coupon);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 };
 
-export const getCouponStats = async (req, res) => {
-  try {
-    res.json(await couponGlobalStatsService());
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-};
+export const applyDiscount = async (req, res) => {
+    try {
+        const { code, category, cartAmount = 0, userId } = req.body;
 
-export const simulateCouponImpactController = async (req, res) => {
-  try {
-    const { code, expectedUses = 100, avgOrderValue = 200 } = req.body;
-    if (!code) return res.status(400).json({ error: "Code requis" });
+        let result = {
+            originalAmount: cartAmount,
+            discountApplied: 0,
+            finalAmount: cartAmount,
+            appliedPromotion: null,
+            appliedCoupon: null
+        };
 
-    const r = await simulateCouponImpact(code, { expectedUses, avgOrderValue });
+        if (code) {
+            const useResult = await useCouponService(code, userId, cartAmount);
+            result.discountApplied = useResult.discount;
+            result.finalAmount = useResult.finalAmount;
+            result.appliedPromotion = useResult.promotion;
+            result.appliedCoupon = useResult.coupon;
+        } else {
+            const now = new Date();
+            const bestPromo = await Promotion.findOne({
+                category,
+                isActive: true,
+                startDate: { $lte: now },
+                $or: [{ endDate: { $gte: now } }, { endDate: null }],
+                minPurchaseAmount: { $lte: cartAmount },
+                $or: [{ maxUsesTotal: { $gt: "$usesCount" } }, { maxUsesTotal: null }]
+            }).sort({ discountValue: -1 });
 
-    res.json({
-      success: true,
-      message: "Simulation OK",
-      simulation: r
-    });
-  } catch (e) {
-    res.status(400).json({ error: e.message });
-  }
+            if (bestPromo) {
+                let discount = bestPromo.discountType === "percentage"
+                    ? cartAmount * (bestPromo.discountValue / 100)
+                    : bestPromo.discountValue;
+
+                bestPromo.usesCount += 1;
+                await bestPromo.save();
+
+                result.discountApplied = discount;
+                result.finalAmount = cartAmount - discount;
+                result.appliedPromotion = bestPromo;
+            }
+        }
+
+        // Simuler un achat et envoyer coupon si applicable
+        if (result.finalAmount > 0 && userId && result.appliedPromotion) { // Suppose un achat réussi
+            await sendCouponAfterPurchase(userId, result.appliedPromotion._id, cartAmount);
+        }
+
+        res.json(result);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 };

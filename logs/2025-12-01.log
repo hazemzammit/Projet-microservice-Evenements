@@ -1,2 +1,0 @@
-{"timestamp":"2025-12-01T22:21:01.538Z","type":"coupon_sandbox","message":"Coupon sandbox créé (non persisté)","code":"DEMO2025","promotion":"692b076fa024861f2872820b"}
-{"timestamp":"2025-12-01T22:25:23.183Z","type":"simulation","message":"Simulation effectuée","couponCode":"COUPON2025","expectedUses":80,"avgOrderValue":250,"totalSaving":8000}
