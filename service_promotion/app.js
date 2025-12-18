@@ -1,23 +1,19 @@
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
-import mongoose from "mongoose";
-
-dotenv.config();
-
-// Routes
 import promotionRoutes from "./routes/promotion.routes.js";
 import couponRoutes from "./routes/coupon.routes.js";
-import { genericRateLimiter } from "./middlewares/rateLimit.js";
+import statsRoutes from "./routes/stats.routes.js";
 
 const app = express();
 
+// Middlewares
 app.use(cors());
 app.use(express.json({ limit: "3mb" }));
-app.use(genericRateLimiter);
+app.use(express.urlencoded({ extended: true }));
 
 // ============= HEALTH CHECK ROUTE =============
 app.get("/health", (req, res) => {
+  const mongoose = require("mongoose");
   res.json({
     status: 'healthy',
     service: 'service-promotions',
@@ -27,35 +23,43 @@ app.get("/health", (req, res) => {
   });
 });
 
-// ============= MAIN ROUTES =============
+// ============= BASE ROUTE =============
 app.get("/", (req, res) => {
   res.json({ 
-    message: "Promotion API is running...",
+    message: "Service Promotions API",
     version: "1.0.0",
+    service: "service-promotions",
     endpoints: {
-      promotions: "/promotions",
-      coupons: "/coupons",
+      promotions: "/api/promotions",
+      coupons: "/api/coupons",
+      stats: "/api/stats",
       health: "/health"
-    }
+    },
+    timestamp: new Date().toISOString()
   });
 });
 
-app.use("/promotions", promotionRoutes);
-app.use("/coupons", couponRoutes);
+// ============= API ROUTES =============
+app.use("/api/promotions", promotionRoutes);
+app.use("/api/coupons", couponRoutes);
+app.use("/api/stats", statsRoutes);
 
-// ============= ERROR HANDLING =============
+// ============= 404 HANDLER =============
 app.use((req, res) => {
   res.status(404).json({
     success: false,
-    message: 'Route non trouvée'
+    message: 'Route non trouvée',
+    path: req.path
   });
 });
 
+// ============= ERROR HANDLING MIDDLEWARE =============
 app.use((err, req, res, next) => {
   console.error('Erreur:', err);
   res.status(err.status || 500).json({
     success: false,
     message: err.message || 'Erreur serveur interne',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
 });
 

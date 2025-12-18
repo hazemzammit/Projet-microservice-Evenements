@@ -1,0 +1,151 @@
+version: "3.8"
+
+services:
+  # MongoDB Database
+  mongo:
+    image: mongo:6
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - microservices-network
+
+  # Service Discovery
+  service-discovery:
+    build: ./service-discovery
+    container_name: service-discovery
+    ports:
+      - "4000:4000"
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Service Utilisateurs
+  service_utilisateurs:
+    build: ./service_utilisateurs
+    container_name: service_utilisateurs
+    ports:
+      - "3000:3000"
+    environment:
+      - SERVICE_DISCOVERY_URL=http://service-discovery:4000
+      - MONGO_URL=mongodb://mongo:27017/utilisateurs
+    depends_on:
+      - service-discovery
+      - mongo
+    networks:
+      - microservices-network
+    restart: on-failure
+
+  # Service Evenements
+  service_evenements:
+    build: ./service_evenements
+    container_name: service_evenements
+    ports:
+      - "3001:3001"
+    environment:
+      - SERVICE_DISCOVERY_URL=http://service-discovery:4000
+      - MONGO_URL=mongodb://mongo:27017/evenements
+    depends_on:
+      - service-discovery
+      - mongo
+    networks:
+      - microservices-network
+    restart: on-failure
+
+  
+
+  # Service Experience
+  service-experience:
+    build: ./service-Experience
+    container_name: service-experience
+    ports:
+      - "3002:3002"
+    environment:
+      - SERVICE_DISCOVERY_URL=http://service-discovery:4000
+      - MONGO_URL=mongodb://mongo:27017/experiences
+    depends_on:
+      - service-discovery
+      - mongo
+    networks:
+      - microservices-network
+    restart: on-failure
+
+  service_reservation:
+    build: ./service_reservation
+    container_name: service_reservation
+    ports:
+      - "3003:3003"
+    environment:
+      - SERVICE_DISCOVERY_URL=http://service-discovery:4000
+      - MONGO_URL=mongodb://mongo:27017/reservation
+    depends_on:
+      - service-discovery
+      - mongo
+    networks:
+      - microservices-network
+    restart: on-failure
+
+  # Service Shop
+  service_shop:
+    build: ./service_shop
+    container_name: service_shop
+    ports:
+      - "3004:3004"
+    environment:
+      - SERVICE_DISCOVERY_URL=http://service-discovery:4000
+      - MONGO_URL=mongodb://mongo:27017/shop
+    depends_on:
+      - service-discovery
+      - mongo
+    networks:
+      - microservices-network
+    restart: on-failure
+
+  # Service Promotion
+  service_promotion:
+    build: ./service_promotion
+    container_name: service_promotion
+    ports:
+      - "3005:3005"
+    environment:
+      - SERVICE_DISCOVERY_URL=http://service-discovery:4000
+      - MONGO_URL=mongodb://mongo:27017/promotions
+    depends_on:
+      - service-discovery
+      - mongo
+    networks:
+      - microservices-network
+    restart: on-failure
+
+  # API Gateway
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "5000:5000"
+    environment:
+      - DISCOVERY_URL=http://service-discovery:4000/services
+    depends_on:
+      - service-discovery
+      - service_utilisateurs
+      - service_evenements
+      - service-experience
+      - service_shop
+      - service_promotion
+      - service_reservation
+    networks:
+      - microservices-network
+    restart: on-failure
+
+networks:
+  microservices-network:
+    driver: bridge
+
+volumes:
+  mongo-data:

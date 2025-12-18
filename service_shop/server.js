@@ -20,7 +20,7 @@ async function registerService() {
   try {
     const serviceInfo = {
       name: SERVICE_NAME,
-      url: `http://localhost:${PORT}`,
+      url: `http://service_shop:${PORT}`,
       port: PORT,
       metadata: {
         description: 'Microservice de gestion des produits et catégories',
@@ -146,12 +146,12 @@ connectDB()
     console.log('║   SERVICE SHOP DÉMARRÉ                ║');
     console.log('╠═══════════════════════════════════════╣');
     console.log(`║   Port: ${PORT}                            ║`);
-    console.log(`║   URL: http://localhost:${PORT}           ║`);
+    console.log(`║   URL: http://service_shop:${PORT}           ║`);
     console.log('║   MongoDB: Connecté ✓                 ║');
     console.log('╚═══════════════════════════════════════╝\n');
     
     app.listen(PORT, () => {
-      console.log(`Serveur sur http://localhost:${PORT}`);
+      console.log(`Serveur sur http://service_shop:${PORT}`);
       
       // Enregistrer auprès du Service Discovery
       registerService();

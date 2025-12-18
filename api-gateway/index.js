@@ -3,14 +3,11 @@ const axios = require('axios');
 const app = express();
 const PORT = 5000;
 
-// Service Discovery URL
-const DISCOVERY_URL = 'http://localhost:4000/services';
+const DISCOVERY_URL = process.env.DISCOVERY_URL || 'http://service-discovery:4000/services';
 
-// Middleware - IMPORTANT: Use express.json() for ALL routes
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Cache for services
 let servicesCache = null;
 let cacheTimestamp = 0;
 const CACHE_DURATION = 30000;
@@ -40,7 +37,6 @@ async function getServices() {
   return null;
 }
 
-// ============= DIRECT ROUTES (must come FIRST) =============
 
 // Base route - HANDLED DIRECTLY
 app.get('/', (req, res) => {
@@ -54,7 +50,8 @@ app.get('/', (req, res) => {
       promotions: '/api/promotions/*',
       coupons: '/api/coupons/*',
       categories: '/api/categories/*',
-      products: '/api/products/*'
+      products: '/api/products/*',
+      reservations: '/api/reservations/*' 
     },
     timestamp: new Date().toISOString()
   });
@@ -77,7 +74,6 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// ============= SERVICE ROUTING MIDDLEWARE =============
 
 // Middleware to find target service based on path
 app.use(async (req, res, next) => {
@@ -106,25 +102,34 @@ app.use(async (req, res, next) => {
     if (req.path.startsWith('/api/evenements')) {
       targetService = services.find(s => s.name === 'service-evenements');
       pathMapping = (path) => path;
-    } else if (req.path.startsWith('/api/utilisateurs')) {
+    }  else if (req.path.startsWith('/api/reviews')) {
+      targetService = services.find(s => s.name === 'service-evenements');
+      pathMapping = (path) => path;
+    }
+    else if (req.path.startsWith('/api/utilisateurs')) {
       targetService = services.find(s => s.name === 'service-utilisateurs');
       pathMapping = (path) => path.replace('/api/utilisateurs', '/users');
     } else if (req.path.startsWith('/api/experiences')) {
       targetService = services.find(s => s.name === 'service-experiences');
       pathMapping = (path) => path.replace('/api/experiences', '/experience');
     } else if (req.path.startsWith('/api/promotions')) {
-      targetService = services.find(s => s.name === 'service-promotions');
-      pathMapping = (path) => path.replace('/api/promotions', '/promotions');
-    } else if (req.path.startsWith('/api/coupons')) {
-      targetService = services.find(s => s.name === 'service-promotions');
-      pathMapping = (path) => path.replace('/api/coupons', '/coupons');
-    } else if (req.path.startsWith('/api/categories')) {
+  targetService = services.find(s => s.name === 'service-promotions');
+  pathMapping = (path) => path; // Don't modify the path - keep /api/promotions
+} else if (req.path.startsWith('/api/coupons')) {
+  targetService = services.find(s => s.name === 'service-promotions');
+  pathMapping = (path) => path; // Don't modify the path - keep /api/coupons
+} else if (req.path.startsWith('/api/categories')) {
       targetService = services.find(s => s.name === 'service-shop');
       pathMapping = (path) => path.replace('/api/categories', '/api/categories');
     } else if (req.path.startsWith('/api/products')) {
       targetService = services.find(s => s.name === 'service-shop');
       pathMapping = (path) => path.replace('/api/products', '/api/products');
-    }
+    }else if (req.path.startsWith('/api/reservations')) {
+  targetService = services.find(s => s.name === 'service-reservation');
+  pathMapping = (path) => path;
+}
+
+    
     
     if (!targetService) {
       return res.status(404).json({
@@ -153,11 +158,10 @@ app.use(async (req, res, next) => {
   }
 });
 
-// Route handler to proxy requests to services
-app.use(async (req, res) => {
+app.use(async (req, res, next) => {
   // This will only run for routes that have targetService set
   if (!req.targetService) {
-    return next(); // Skip to 404 handler
+    return next(); // ✅ Now 'next' is properly available as a parameter
   }
   
   try {
@@ -168,6 +172,7 @@ app.use(async (req, res) => {
     
     console.log(`[GATEWAY] Forwarding ${req.method} to: ${targetUrl}`);
     console.log('[GATEWAY] Request body being sent:', req.body);
+    
     
     // Prepare headers for forwarding
     const headers = {

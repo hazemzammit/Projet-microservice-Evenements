@@ -6,10 +6,19 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Environment variables
+# Environment variables - NE PAS VERSIONNER LES .env
 .env
 .env.local
 .env.*.local
+
+# Docker IGNORE UNIQUEMENT :
+# - Les fichiers de build temporaires
+.dockerignore  # si vous en avez un global
+
+# MAIS GARDER :
+# ✅ Dockerfile (à versionner)
+# ✅ docker-compose.yml (à versionner)
+# ✅ docker-compose.override.yml (optionnel, à versionner si utilisé)
 
 # OS files
 .DS_Store
@@ -30,9 +39,13 @@ logs/
 dist/
 build/
 
-# MongoDB data (if local)
+# MongoDB data (if local) - IMPORTANT: ignorer les données
 data/
 *.lock
+mongo-data/  # volume Docker pour MongoDB
+
+# Service-specific data files (JSON, etc.)
+service_reservation/data.json  # contient des données, ne pas versionner
 
 # Test coverage
 coverage/
@@ -41,3 +54,6 @@ coverage/
 # Temporary files
 tmp/
 temp/
+
+# Docker volumes (si créés localement)
+volumes/

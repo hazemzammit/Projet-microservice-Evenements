@@ -1,35 +1,17 @@
 import mongoose from "mongoose";
 
-const PromotionSchema = new mongoose.Schema(
-  {
+const promotionSchema = new mongoose.Schema({
     name: { type: String, required: true },
-    description: String,
-
-    discountType: {
-      type: String,
-      enum: ["percentage", "fixed"],
-      required: true
-    },
-
-    discountValue: {
-      type: Number,
-      required: true
-    },
-
-    category: {
-      type: String,
-      default: "general"
-    },
-
-    startDate: { type: Date, required: true },
-    endDate: { type: Date, required: true },
-
+    description: { type: String },
+    discountType: { type: String, enum: ["percentage", "fixed"], required: true },
+    discountValue: { type: Number, required: true },
+    category: { type: String, required: true },
+    minPurchaseAmount: { type: Number, default: 0 },
+    startDate: { type: Date, default: Date.now },
+    endDate: { type: Date },
     isActive: { type: Boolean, default: true },
+    maxUsesTotal: { type: Number },
+    usesCount: { type: Number, default: 0 }
+}, { timestamps: true });
 
-    minPurchase: { type: Number, default: 0 },
-    stackable: { type: Boolean, default: false }
-  },
-  { timestamps: true }
-);
-
-export default mongoose.model("Promotion", PromotionSchema);
+export default mongoose.model("Promotion", promotionSchema);

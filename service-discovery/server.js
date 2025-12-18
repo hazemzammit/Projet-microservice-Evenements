@@ -2,13 +2,10 @@ const express = require('express');
 const app = express();
 const PORT = 4000;
 
-// Middleware
 app.use(express.json());
 
-// Store for registered services
 let services = [];
 
-// Add service
 app.post('/register', (req, res) => {
   const { name, url, port, metadata = {} } = req.body;
   
@@ -19,11 +16,9 @@ app.post('/register', (req, res) => {
     });
   }
   
-  // Check if service already exists
   const existingIndex = services.findIndex(s => s.name === name && s.url === url);
   
   if (existingIndex >= 0) {
-    // Update existing service
     services[existingIndex] = {
       ...services[existingIndex],
       port,
@@ -37,7 +32,7 @@ app.post('/register', (req, res) => {
     return res.json({
       success: true,
       message: 'Service mis à jour',
-      serviceId: services[existingIndex].id,  // ← Add this
+      serviceId: services[existingIndex].id, 
       service: services[existingIndex]
     });
   }
@@ -61,12 +56,11 @@ app.post('/register', (req, res) => {
   res.status(201).json({
     success: true,
     message: 'Service enregistré avec succès',
-    serviceId: newService.id,  // ← Add this line
+    serviceId: newService.id, 
     service: newService
   });
 });
 
-// Get all services
 app.get('/services', (req, res) => {
   res.json({
     success: true,
@@ -75,7 +69,7 @@ app.get('/services', (req, res) => {
   });
 });
 
-// Get service by name
+
 app.get('/services/by-name/:name', (req, res) => {
   const { name } = req.params;
   
@@ -94,7 +88,6 @@ app.get('/services/by-name/:name', (req, res) => {
   });
 });
 
-// Heartbeat endpoint
 app.post('/heartbeat/:serviceId', (req, res) => {
   const { serviceId } = req.params;
   
@@ -116,7 +109,6 @@ app.post('/heartbeat/:serviceId', (req, res) => {
   });
 });
 
-// Health check
 app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
@@ -125,10 +117,10 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Remove inactive services (cleanup)
+
 setInterval(() => {
   const now = new Date();
-  const timeout = 60000; // 60 seconds
+  const timeout = 60000; 
   
   services = services.filter(service => {
     const timeDiff = now - new Date(service.lastHeartbeat);
@@ -140,9 +132,9 @@ setInterval(() => {
     
     return true;
   });
-}, 30000); // Check every 30 seconds
+}, 30000); 
 
-// Start server
+
 app.listen(PORT, () => {
   console.log('\n══════════════════════════════════════════');
   console.log('🔍 Service Discovery (similaire à classe)');

@@ -1,121 +1,143 @@
 import Coupon from "../models/coupon.model.js";
 import Promotion from "../models/promotion.model.js";
-import QRCode from "qrcode";
+import CouponUsage from "../models/couponUsage.model.js";
+import { nanoid } from "nanoid";
+import { sendCouponEmail } from "./email.service.js"; // Pour envoi après achat
 
-// ========================
-//  CREATE COUPON
-// ========================
-export const createCouponService = async (data) => {
-  const promotion = await Promotion.findById(data.promotion);
-  if (!promotion) throw new Error("Promotion introuvable");
+const generateCode = () => `PROMO-${nanoid(8).toUpperCase()}`;
 
-  const qrCodeImage = await QRCode.toDataURL(data.code);
+export const createCouponService = async ({
+    promotionId,
+    type = "multi",
+    maxUsage,
+    code,
+    expiresAt,
+    assignedTo
+}) => {
+    const promotion = await Promotion.findById(promotionId);
+    if (!promotion) throw new Error("Promotion introuvable");
+    if (!promotion.isActive) throw new Error("Promotion désactivée");
 
-  return Coupon.create({
-    code: data.code,
-    promotion: promotion._id,
-    maxUsage: data.maxUsage,
-    qrCode: qrCodeImage
-  });
+    const finalCode = code || generateCode();
+
+    const existing = await Coupon.findOne({ code: finalCode });
+    if (existing) throw new Error("Ce code existe déjà");
+
+    const coupon = new Coupon({
+        code: finalCode,
+        promotion: promotion._id,
+        type,
+        maxUsage: type === "single" ? 1 : (maxUsage || 100),
+        expiresAt,
+        assignedTo: type === "personal" ? assignedTo : undefined
+    });
+
+    return await coupon.save();
 };
 
-// ========================
-//  AUTO-GENERATED COUPON
-// ========================
-export const autoGenerateCouponService = async (promotionId) => {
-  const promo = await Promotion.findById(promotionId);
-  if (!promo) throw new Error("Promotion introuvable");
+export const validateCouponService = async (code, category, userId = null, cartAmount = 0) => {
+    const coupon = await Coupon.findOne({ 
+        code: code.toUpperCase(), 
+        isActive: true 
+    }).populate("promotion");
 
-  const randomCode = "AUTO-" + Math.random().toString(36).substring(2, 10).toUpperCase();
+    if (!coupon) throw new Error("Coupon introuvable ou désactivé");
 
-  const qrCodeImage = await QRCode.toDataURL(randomCode);
+    const now = new Date();
 
-  return Coupon.create({
-    code: randomCode,
-    promotion: promo._id,
-    maxUsage: 5,
-    qrCode: qrCodeImage
-  });
-};
+    if (coupon.expiresAt && now > coupon.expiresAt) {
+        throw new Error("Coupon expiré");
+    }
 
-// ========================
-// VALIDATE COUPON
-// ========================
-export const validateCouponService = async (code, category, clientIP) => {
-  const coupon = await Coupon.findOne({ code }).populate("promotion");
-  if (!coupon) throw new Error("Coupon introuvable");
+    const promo = coupon.promotion;
 
-  const promo = coupon.promotion;
+    if (!promo.isActive) throw new Error("Promotion désactivée");
+    if (promo.startDate > now) throw new Error("Promotion pas encore active");
+    if (promo.endDate && promo.endDate < now) throw new Error("Promotion expirée");
+    if (promo.category !== category) throw new Error("Catégorie non éligible");
+    if (cartAmount < promo.minPurchaseAmount) {
+        throw new Error(`Montant minimum requis : ${promo.minPurchaseAmount}€`);
+    }
+    if (promo.maxUsesTotal && promo.usesCount >= promo.maxUsesTotal) {
+        throw new Error("Limite globale de la promotion atteinte");
+    }
 
-  // 1. Vérifier les dates
-  const now = new Date();
-  if (now < promo.startDate || now > promo.endDate) {
-    throw new Error("Cette promotion n'est pas valide aujourd’hui.");
-  }
+    if (coupon.type === "personal" && coupon.assignedTo.toString() !== userId?.toString()) {
+        throw new Error("Ce coupon est personnel et ne vous est pas assigné");
+    }
 
-  // 2. Vérifier la catégorie
-  if (promo.category !== category) {
-    throw new Error("Cette promotion n’est pas autorisée pour cette catégorie.");
-  }
-
-  // 3. Anti-fraude IP
-  if (coupon.lastUsedIP && coupon.lastUsedIP === clientIP) {
-    throw new Error("Suspicious activity: same IP repeatedly.");
-  }
-
-  return promo;
-};
-
-// ========================
-//  USE COUPON
-// ========================
-export const useCouponService = async (code, clientIP) => {
-  const coupon = await Coupon.findOne({ code });
-  if (!coupon) throw new Error("Coupon introuvable");
-
-  if (coupon.usedCount >= coupon.maxUsage) {
-    throw new Error("Coupon déjà utilisé au maximum");
-  }
-
-  // anti-fraude
-  coupon.lastUsedIP = clientIP;
-
-  coupon.usedCount++;
-  await coupon.save();
-
-  return coupon;
-};
-
-// ========================
-// 📊 GLOBAL COUPON STATS
-// ========================
-export const couponGlobalStatsService = async () => {
-  return await Coupon.aggregate([
-    {
-      $group: {
-        _id: null,
-        totalCoupons: { $sum: 1 },
-        totalUsed: { $sum: "$usedCount" },
-        totalRemaining: {
-          $sum: { $subtract: ["$maxUsage", "$usedCount"] }
+    if (userId) {
+        const alreadyUsed = coupon.usedBy.some(u => u.user.toString() === userId.toString());
+        if (alreadyUsed && coupon.type !== "multi") {
+            throw new Error("Vous avez déjà utilisé ce coupon");
         }
-      }
     }
-  ]);
+
+    if (coupon.type === "multi" && coupon.usedCount >= coupon.maxUsage) {
+        throw new Error("Coupon épuisé");
+    }
+
+    return { valid: true, coupon, promotion: promo };
 };
 
-// ========================
-// 📊 COUPON BY PROMOTION
-// ========================
-export const couponStatsByPromotionService = async (promotionId) => {
-  return Coupon.aggregate([
-    { $match: { promotion: new mongoose.Types.ObjectId(promotionId) } },
-    {
-      $group: {
-        _id: "$promotion",
-        total: { $sum: 1 },
-        totalUsed: { $sum: "$usedCount" }
-      }
+export const useCouponService = async (code, userId = null, cartAmount = 0) => {
+    const { coupon, promotion } = await validateCouponService(code, promotion.category, userId, cartAmount);
+
+    let discount = 0;
+    if (promotion.discountType === "percentage") {
+        discount = cartAmount * (promotion.discountValue / 100);
+    } else {
+        discount = promotion.discountValue;
     }
-  ]);
+
+    coupon.usedCount += 1;
+    if (userId) {
+        coupon.usedBy.push({ user: userId });
+    }
+    promotion.usesCount += 1;
+
+    await coupon.save();
+    await promotion.save();
+
+    await CouponUsage.create({
+        coupon: coupon._id,
+        user: userId,
+        promotion: promotion._id,
+        orderAmount: cartAmount,
+        discountApplied: discount
+    });
+
+    return {
+        message: "Coupon appliqué !",
+        discount,
+        finalAmount: cartAmount - discount,
+        promotion,
+        coupon
+    };
+};
+
+export const deactivateCouponService = async (code) => {
+    const coupon = await Coupon.findOneAndUpdate({ code: code.toUpperCase() }, { isActive: false }, { new: true });
+    if (!coupon) throw new Error("Coupon introuvable");
+    return coupon;
+};
+
+// Fonction pour envoi coupon après achat (appelée depuis un endpoint achat simulé)
+export const sendCouponAfterPurchase = async (userId, promotionId, cartAmount) => {
+    const user = await User.findById(userId);
+    if (!user) throw new Error("Utilisateur introuvable");
+
+    // Logique métier : si achat > 100€, envoyer un coupon personnel
+    if (cartAmount > 100) {
+        const coupon = await createCouponService({
+            promotionId,
+            type: "personal",
+            assignedTo: userId,
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 jours
+        });
+
+        await sendCouponEmail(user.email, coupon.code, promotionId);
+        return coupon;
+    }
+    return null;
 };
