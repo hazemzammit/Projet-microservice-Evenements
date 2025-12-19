@@ -35,6 +35,10 @@ services:
     environment:
       - SERVICE_DISCOVERY_URL=http://service-discovery:4000
       - MONGO_URL=mongodb://mongo:27017/utilisateurs
+      - JWT_SECRET=483b022b605dd1575711b14d51c98ed2b2fa9440c815012350dc7c2cb51aa58562c3c92fc81c167c6f51f866cff7787017eb6d759af9bafe92000e9e7c2bd80c
+      - EMAIL_USER=zarroukyassine005@gmail.com
+      - EMAIL_PASS=xpfl ffvz jrty bwyk
+      - APP_URL=http://localhost:5000
     depends_on:
       - service-discovery
       - mongo

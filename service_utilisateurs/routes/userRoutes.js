@@ -14,10 +14,13 @@ const {
   createUserSchema
 } = require("../middlewares/validation");
 
+// Authentication routes
 router.post("/register", validateBody(registerSchema), authController.register);
 router.post("/login", validateBody(loginSchema), authController.login);
 router.get("/verify", authController.verify);
+//router.post("/resend-verification", authController.resendVerification); // New route
 
+// Password management
 router.post(
   "/reset-password/request",
   validateBody(resetRequestSchema),
@@ -28,7 +31,6 @@ router.post(
   validateBody(resetConfirmSchema),
   authController.confirmReset
 );
-
 router.post(
   "/change-password",
   authenticate,
@@ -36,6 +38,7 @@ router.post(
   authController.changePassword
 );
 
+// User CRUD operations
 router.get("/", userController.getUsers);
 router.post("/", validateBody(createUserSchema), userController.createUser);
 router.put("/:id", userController.updateUser);

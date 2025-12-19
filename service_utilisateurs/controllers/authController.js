@@ -3,13 +3,26 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const { sendEmail } = require("../services/emailService");
 
+// ⚠️ CRITICAL: Add this to your .env file
+// JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
 const JWT_SECRET = process.env.JWT_SECRET || "secretkey";
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "1h";
 const VERIFICATION_TOKEN_EXPIRES = process.env.VERIFICATION_TOKEN_EXPIRES || "7d";
-const BASE_USER_SERVICE_URL =
-  process.env.APP_URL || process.env.USER_SERVICE_URL || "http://localhost:4000";
 
-const buildVerificationUrl = (token) => `${BASE_USER_SERVICE_URL}/users/verify?token=${token}`;
+// Fixed URL building - uses gateway by default
+const BASE_USER_SERVICE_URL =
+  process.env.APP_URL || 
+  process.env.USER_SERVICE_URL || 
+  "http://localhost:5000";
+
+const buildVerificationUrl = (token) => {
+  // If using gateway (port 5000), route through /api/utilisateurs
+  if (BASE_USER_SERVICE_URL.includes('5000')) {
+    return `${BASE_USER_SERVICE_URL}/api/utilisateurs/verify?token=${token}`;
+  }
+  // Otherwise use direct service URL
+  return `${BASE_USER_SERVICE_URL}/users/verify?token=${token}`;
+};
 
 const generateVerificationToken = (userId) =>
   jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: VERIFICATION_TOKEN_EXPIRES });
@@ -30,6 +43,12 @@ const trySendVerificationEmail = async (user) => {
     return await sendVerificationEmail(user);
   } catch (err) {
     console.error("Failed to send verification email:", err);
+    console.error("Error details:", {
+      name: err.name,
+      message: err.message,
+      code: err.code,
+      command: err.command
+    });
     return { error: err };
   }
 };
@@ -65,6 +84,7 @@ exports.register = async (req, res) => {
       verifyUrl: verification.verifyUrl
     });
   } catch (error) {
+    console.error("Registration error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -85,6 +105,7 @@ exports.verify = async (req, res) => {
 
     res.status(200).json({ success: true, message: "Account verified" });
   } catch (error) {
+    console.error("Verification error:", error);
     res.status(400).json({ success: false, message: "Invalid or expired token" });
   }
 };
@@ -128,6 +149,7 @@ exports.login = async (req, res) => {
       }
     });
   } catch (error) {
+    console.error("Login error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -140,22 +162,45 @@ exports.requestReset = async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
 
     const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: "15m" });
+    
+    // Use same base URL logic as verification
     const baseUrl =
       process.env.FRONTEND_URL ||
       process.env.APP_URL ||
       process.env.USER_SERVICE_URL ||
-      "http://localhost:4000";
+      "http://localhost:5000";
 
-    const resetLink = `${baseUrl}/users/reset-password/confirm?token=${token}`;
+    // Build reset link with proper routing
+    const resetLink = baseUrl.includes('5000')
+      ? `${baseUrl}/api/utilisateurs/reset-password/confirm?token=${token}`
+      : `${baseUrl}/users/reset-password/confirm?token=${token}`;
 
     let emailError;
     try {
       await sendEmail(
         user.email,
         "Reset Password",
-        `<h2>Reset Password</h2>
-         <p>Click below to reset your password:</p>
-         <a href="${resetLink}">Reset password</a>`
+        `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Password Reset Request</h2>
+          <p>Hello ${user.firstName},</p>
+          <p>We received a request to reset your password. Click the button below to reset it:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetLink}" 
+               style="background-color: #2196F3; color: white; padding: 12px 30px; 
+                      text-decoration: none; border-radius: 5px; display: inline-block;">
+              Reset Password
+            </a>
+          </div>
+          <p style="color: #666; font-size: 12px;">
+            If you didn't request this, you can safely ignore this email.
+          </p>
+          <p style="color: #666; font-size: 12px;">
+            This link will expire in 15 minutes.
+          </p>
+          <p style="color: #666; font-size: 12px; word-break: break-all;">
+            Or copy this link: ${resetLink}
+          </p>
+        </div>`
       );
     } catch (err) {
       emailError = err;
@@ -172,6 +217,7 @@ exports.requestReset = async (req, res) => {
     });
 
   } catch (error) {
+    console.error("Reset request error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -194,6 +240,7 @@ exports.confirmReset = async (req, res) => {
 
     res.status(200).json({ success: true, message: "Password has been reset" });
   } catch (error) {
+    console.error("Reset confirm error:", error);
     res.status(400).json({ success: false, message: "Invalid or expired token" });
   }
 };
@@ -222,6 +269,7 @@ exports.changePassword = async (req, res) => {
 
     res.status(200).json({ success: true, message: "Password changed" });
   } catch (error) {
+    console.error("Change password error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

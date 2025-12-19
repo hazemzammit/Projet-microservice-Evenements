@@ -114,11 +114,16 @@ app.use(async (req, res, next) => {
       pathMapping = (path) => path.replace('/api/experiences', '/experience');
     } else if (req.path.startsWith('/api/promotions')) {
   targetService = services.find(s => s.name === 'service-promotions');
-  pathMapping = (path) => path; // Don't modify the path - keep /api/promotions
+  pathMapping = (path) => path;
 } else if (req.path.startsWith('/api/coupons')) {
   targetService = services.find(s => s.name === 'service-promotions');
-  pathMapping = (path) => path; // Don't modify the path - keep /api/coupons
-} else if (req.path.startsWith('/api/categories')) {
+  pathMapping = (path) => path;
+} 
+else if (req.path.startsWith('/api/stats')) {
+  targetService = services.find(s => s.name === 'service-promotions');
+  pathMapping = (path) => path; 
+}
+else if (req.path.startsWith('/api/categories')) {
       targetService = services.find(s => s.name === 'service-shop');
       pathMapping = (path) => path.replace('/api/categories', '/api/categories');
     } else if (req.path.startsWith('/api/products')) {
