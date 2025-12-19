@@ -42,7 +42,6 @@ au démarrage pour s’enregistrer.
 Adresse du Registry dans Eventia :
  ==> http://localhost:4000
  
-Ci-dessous se trouve la structure de la fonction Registry
 4. Service index ”Gateway”
 La Gateway est l’entrée principale de l’application.
 Elle reçoit les requêtes des utilisateurs et les redirige vers le bon micro-service (user, 
